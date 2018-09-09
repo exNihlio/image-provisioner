@@ -1,0 +1,80 @@
+---
+# First attempt
+- hosts: localhost
+  vars: 
+    host_name: '{{ host_name }}'
+    full_host_name: '{{ full_host_name }}'
+    memory: '{{ memory }}'
+    vpcus: '{{ vcpus }}'
+    disk_size: '{{ disk_size }}'
+    network: '{{ network }}'
+    ansible_hosts: '/etc/ansible/hosts'
+    cloud_init_path: '/data/vm_storage/cloud-init'
+    cloud_init_isos: '/data/vm_storage/cloud-init/isos'
+    base_disk: '/data/vm_storage/images/base/CentOS-7-x86_64-GenericCloud-1804.qcow2'
+    disk_path: '/data/vm_storage/images'
+
+  tasks:
+    - name: Instantiate image
+      command: rsync -a {{ base_disk }} {{ disk_path }}/{{ host_name }}.qcow2
+      become: yes
+   
+    - name: Generate new meta-data instance-id
+      shell: 'echo instance-id: {{ host_name }} >> {{ cloud_init_path }}/meta-data'
+      become: yes
+
+    - name: Generate new meta-data local-hostname
+      shell: 'echo local-hostname: {{ full_host_name }} >> {{ cloud_init_path }}/meta-data'
+      become: yes
+ 
+    - name: Generate cloud-init ISO
+      command: genisoimage -output {{ cloud_init_isos }}/{{ host_name }}.iso -joliet -volid cidata \
+               -r {{ cloud_init_path }}/user-data {{ cloud_init_path }}/meta-data
+      become: yes
+    
+    - name: Resize disk image
+      command: qemu-img resize {{ disk_path }}/{{ host_name }}.qcow2 {{ disk_size }}
+
+    
+    - name: Import the VM
+      command: virt-install \
+               --name {{ host_name }} \
+               --vcpus {{ vcpus }} \
+               --memory {{ memory }} \
+               --import \
+               --disk '{{ disk_path }}/{{ host_name }}'.qcow2,format=qcow2,bus=virtio \
+               --disk {{ cloud_init_isos }}/{{ host_name }}.iso,device=cdrom
+               --network network={{ network }}
+               --os-type=linux
+               --os-variant=rhel7
+               --noautoconsole
+      become: yes
+      
+    - name: Eject the cloud-init ISO
+      command: virsh change-media {{ host_name }} hda --eject --config
+      become: yes
+ 
+    - name: Delete the cloud-init ISO
+      command: rm '{{ cloud_init_isos }}/{{ host_name }}'.iso
+      become: yes 
+
+    - name: Remove old meta-data file
+      command: rm '{{ cloud_init_path }}/meta-data'
+      become: yes
+          
+    - name: Add {{ host_name }} to ansible/hosts
+      lineinfile:
+        path: '{{ ansible_hosts }}'
+        line: '{{ host_name }}'
+        state: present
+      become: yes
+         
+    - name: Remove {{ host_name }} entry in .ssh/known_hosts
+      lineinfile:
+        path: ~/.ssh/known_hosts
+        line: '{{ host_name }}'
+        state: absent
+ 
+    - name: Reboot {{ host_name }}
+      command: virsh reboot {{ host_name }}
+      become: yes
