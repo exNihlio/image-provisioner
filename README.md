@@ -2,11 +2,11 @@
 
 A simple Ansible playbook to quickly provision VMs in a KVM/QEMU environment.
 
-##Assumptions
+## Assumptions
 
 You have Ansible installed on your KVM host
 
-##Usage
+## Usage
 
 1. Create a `cloud-init` `user-data` and `meta-data` file. Read about `cloud-init` [here](https://cloudinit.readthedocs.io/en/latest/)
 
