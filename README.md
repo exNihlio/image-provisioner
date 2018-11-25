@@ -15,7 +15,7 @@ You have Ansible installed on your KVM host
 - `/data/vm_storage/cloud-init/isos`
 - `/data/vm_storage/images/base`
 
-At a minimum you should have storage for your cloud images, a directory for your `cloud-init` files and a directory for
+At a minimum you should have storage for your cloud images, a directory for your `cloud-init` files and a directory
 for your installed VMs.
 
 3. Download a qcow2 cloud image for the operating system of your choice.
